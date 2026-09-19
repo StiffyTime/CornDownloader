@@ -1,5 +1,23 @@
 # Corn Downloader
 
+**Firefox desktop extension — HLS and direct MP4 downloads.**
+
+## Install version 0.8.0
+
+1. Download the [signed Firefox installer (.xpi)](Archive/deb8f7d0adf14cafaa24-0.8.0.xpi?raw=true).
+2. In Firefox, open `about:addons`, click the gear menu, and choose
+   **Install Add-on From File…**. Select the downloaded `.xpi` and accept the
+   installation prompt.
+3. Play a video, open Corn Downloader from Firefox's extensions menu, and click
+   **Refresh**. Choose an available HLS quality or Direct MP4 entry, then Download.
+
+Use the signed `.xpi` for normal installation. GitHub's source ZIP and the unsigned
+ZIPs in Archive are development/submission packages, not normal installers.
+This self-distributed build has no automatic update feed; install a newer signed
+XPI manually when one is published. Chrome and Edge are not supported.
+
+## About
+
 A local Firefox extension for capturing and downloading direct MP4 files and unencrypted HLS video.
 Settings are stored locally; there is no telemetry or external processing service.
 Worker choices remain **2, 4, 6, or 8**, with **4 as the default**. Higher counts
