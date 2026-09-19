@@ -2,6 +2,10 @@
 
 **Firefox desktop extension — HLS and direct MP4 downloads.**
 
+This is a maintainer-only project shared for people to view and install.
+External contributions, pull requests, and support requests are not accepted.
+Updates may be published by the maintainer; community support is not provided.
+
 ## Install version 0.8.0
 
 1. Download the [signed Firefox installer (.xpi)](Archive/deb8f7d0adf14cafaa24-0.8.0.xpi?raw=true).
