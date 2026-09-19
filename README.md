@@ -6,6 +6,9 @@ This is a maintainer-only project shared for people to view and install.
 External contributions, pull requests, and support requests are not accepted.
 Updates may be published by the maintainer; community support is not provided.
 
+For future development, start with [HANDOFF.md](HANDOFF.md). It records the
+architecture, release process, verification status, and maintainer preferences.
+
 ## Install version 0.8.0
 
 1. Download the [signed Firefox installer (.xpi)](Archive/deb8f7d0adf14cafaa24-0.8.0.xpi?raw=true).
@@ -97,7 +100,7 @@ For temporary development loading, open `about:debugging#/runtime/this-firefox`
 in Firefox, choose **Load Temporary Add-on**, and select this folder's
 `manifest.json`. If it is already loaded temporarily, use its **Reload** button.
 Reload the video page so the updated extension captures fresh playlists.
-`CornDownloader-0.8.0.zip` contains the extension and review notes; it is not a signed
+[Archive/CornDownloader-0.8.0.zip](Archive/CornDownloader-0.8.0.zip) contains the extension and review notes; it is not a signed
 Mozilla release.
 
 Suggested browser checks:

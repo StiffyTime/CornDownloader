@@ -1,6 +1,7 @@
 # Corn Downloader 0.8.0 — notes for Mozilla reviewers
 
-Intended distribution: unlisted, for personal use.
+Distribution: self-distributed (unlisted signing), with a signed installer shared
+through the maintainer's GitHub repository. External contributions are not accepted.
 
 This Firefox desktop extension detects unencrypted HLS playlists and direct MP4
 responses from pages the user visits. Downloading requires an explicit click in
