@@ -14,18 +14,30 @@ the original Codex conversation. Read README.md and REVIEWER_NOTES.md as well.
   the current version or modify a signed XPI in place.
 - Source documentation can be newer than documentation bundled inside an already
   signed installer. That does not change its runtime code or invalidate its signature.
-- The user is happy with the delivered result. No unfinished feature request or
-  active development task remains. README's next-work ideas are optional, not a backlog
-  to implement automatically.
+- The user has resumed work to prepare a public Mozilla Add-ons listing. Read
+  PUBLIC_RELEASE.md for the review findings and remaining decisions. Runtime remains
+  0.8.0; a new public-release candidate has not been packaged or submitted.
+- Existing private Mozilla management entry supplied by the maintainer:
+  https://addons.mozilla.org/en-US/developers/addon/deb8f7d0adf14cafaa24/edit
+  The agent's signed-out browser showed Not Found, not the add-on's settings.
+  Use the existing owner account; do not infer the entry was deleted.
+- Test procedures and verification status are in docs/REVIEWER_TESTS.md.
+  Use neutral test media; private HLS browsing examples are not needed.
+- Video examples supplied in conversation are for troubleshooting only. Do not
+  publish their links or titles in project documentation, listing text, screenshots,
+  or reviewer submissions. The public listing should describe extension features.
 
 ## Maintainer preferences and GitHub configuration
 
 - Maintainer-only project: no external contributions or support requests.
+- For the public Mozilla listing, use the GitHub README as the help page and state
+  that individual support is not offered. Keep personal email out of public metadata;
+  Mozilla's developer-account contact is for private review correspondence.
 - Public and **not archived**, verified through GitHub's API on the date above.
 - Issues, Discussions, Pull Requests, Wiki, and Projects are disabled. Keep them
   disabled unless the maintainer asks otherwise; retain the ability to push updates.
-- No LICENSE file has been selected. Do not introduce a license without a decision
-  from the maintainer.
+- The maintainer selected MIT for public release. LICENSE and package metadata now
+  record that choice. Keep the public name Corn Downloader.
 - Use this public GitHub noreply identity for commits:
   `306683804+StiffyTime@users.noreply.github.com`.
 - The original two commits were rewritten to remove the maintainer's personal
@@ -71,7 +83,9 @@ node --check popup/popup.js
 
 Tests mock Firefox; they do not establish compatibility with every site. The user
 reported the earlier HLS build worked well and is happy with the delivered project.
-There is no recorded independent end-to-end MP4 site test by the agent. Use the
+The maintainer reported a working MP4 example; there is still no recorded
+independent end-to-end MP4 download test by the agent. Public HLS demo playback
+was verified in the in-app browser, not with the Firefox extension. Use the
 manual checks in README.md after changes involving requests or downloads.
 
 ## Release process
@@ -91,8 +105,9 @@ manual checks in README.md after changes involving requests or downloads.
    version and runtime source match the intended release. Update the README's
    installer link and these handoff notes, then commit/push the release files.
 
-There is no automatic update URL in the manifest and no established GitHub Release
-workflow. Current users install newer signed XPIs manually. Do not describe an
+There is no custom update URL in the manifest and no established GitHub Release
+workflow. Current releases are installed manually; Firefox can update these installs
+to a higher-version AMO-listed release with the same ID once available. Do not describe an
 unsigned ZIP or GitHub source archive as a normal Firefox installer.
 
 ## Known limitations and important fixes to preserve

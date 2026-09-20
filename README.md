@@ -8,6 +8,8 @@ Updates may be published by the maintainer; community support is not provided.
 
 For future development, start with [HANDOFF.md](HANDOFF.md). It records the
 architecture, release process, verification status, and maintainer preferences.
+The code is available under the [MIT license](LICENSE). Contributions remain closed.
+Public Mozilla listing preparation is tracked in [PUBLIC_RELEASE.md](PUBLIC_RELEASE.md).
 
 ## Install version 0.8.0
 
@@ -20,8 +22,10 @@ architecture, release process, verification status, and maintainer preferences.
 
 Use the signed `.xpi` for normal installation. GitHub's source ZIP and the unsigned
 ZIPs in Archive are development/submission packages, not normal installers.
-This self-distributed build has no automatic update feed; install a newer signed
-XPI manually when one is published. Chrome and Edge are not supported.
+No public Mozilla release is recorded yet, so current releases are installed
+manually. The manifest has no custom update feed: Firefox can receive a later,
+higher-version Mozilla-listed release with the same add-on ID once one is published.
+Chrome and Edge are not supported.
 
 ## About
 
