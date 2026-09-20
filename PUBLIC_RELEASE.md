@@ -1,12 +1,12 @@
-# Corn Downloader 0.8.1 — public submission
+# Corn Downloader 0.8.2 — public submission
 
 Status: release candidate prepared locally. Not submitted, signed or published.
 The maintainer will upload it to Mozilla after the live Firefox checks below.
 
 ## Files to use
 
-- Upload: Archive/CornDownloader-0.8.1.zip (unsigned extension package).
-- Checksum: Archive/CornDownloader-0.8.1.zip.sha256.
+- Upload: Archive/CornDownloader-0.8.2.zip (unsigned extension package).
+- Checksum: Archive/CornDownloader-0.8.2.zip.sha256.
 - Listing fields: docs/AMO_LISTING_DRAFT.md (final text for this candidate).
 - Privacy policy: PRIVACY.md. The popup also links to bundled privacy.html.
 - Reviewer explanation: REVIEWER_NOTES.md.
@@ -15,7 +15,13 @@ The maintainer will upload it to Mozilla after the live Firefox checks below.
 The same add-on ID, corn-downloader@local, is retained. Do not upload GitHub's
 whole-repository ZIP, modify an old signed XPI, or submit this as a different add-on.
 
-## Implemented for 0.8.1
+## Implemented for 0.8.2
+
+- Rapid Refresh clicks cannot let older results or failures overwrite the latest
+  results and active-download controls. Two regression tests cover these races.
+- Popup displays its version and announces detection status to screen readers.
+
+Privacy and reliability improvements retained from 0.8.1:
 
 - MIT license, Corn Downloader name, no individual support; README is the help page.
 - Firefox 142+ built-in required disclosure of browsingActivity, websiteContent and
@@ -33,7 +39,7 @@ whole-repository ZIP, modify an old signed XPI, or submit this as a different ad
 
 ## Verification and remaining acceptance checks
 
-Verified 2026-09-21: **42 automated tests passed**, JavaScript syntax checks passed,
+Verified 2026-09-21: **44 automated tests passed**, JavaScript syntax checks passed,
 and Mozilla web-ext 10.6.0 reported **0 errors, 0 warnings, 0 notices** on the
 extracted upload ZIP. No unknown minified files were reported. The ZIP is checked
 byte-for-byte against its 16 source files by the package script.
@@ -59,7 +65,7 @@ real Firefox popup, with sensitive information and example video titles absent.
 2. Open Manage Status & Versions and start a new version submission for this entry.
    Choose On this site (listed) for hosting/distribution. Signed-in intermediate
    labels have not been inspected and may vary.
-3. Upload Archive/CornDownloader-0.8.1.zip. Resolve any validation errors and select
+3. Upload Archive/CornDownloader-0.8.2.zip. Resolve any validation errors and select
    Firefox desktop compatibility. No compilation/minification source build is used.
 4. Fill the listing using docs/AMO_LISTING_DRAFT.md, select MIT, paste PRIVACY.md and
    reviewer notes, and add the icon. Keep personal email out of public fields.

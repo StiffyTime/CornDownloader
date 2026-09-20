@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Corn Downloader",
-  "version": "0.8.1",
+  "version": "0.8.2",
   "description": "Detect and download supported HLS streams and direct MP4 videos.",
   "permissions": [
     "webRequest",

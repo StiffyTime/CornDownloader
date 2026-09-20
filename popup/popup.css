@@ -12,6 +12,13 @@ h1 {
     margin: 0 0 5px 0;
 }
 
+#version {
+    font-size: 12px;
+    font-weight: normal;
+    color: #aaaaaa;
+    white-space: nowrap;
+}
+
 h2 {
     font-size: 17px;
     margin: 0;

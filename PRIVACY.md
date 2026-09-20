@@ -1,6 +1,6 @@
 # Corn Downloader privacy policy
 
-Applies to version 0.8.1. Updated 2026-09-21.
+Applies to version 0.8.2. Updated 2026-09-21.
 
 Corn Downloader has no telemetry, analytics, advertising, developer server,
 account service or external media-processing service. It does not send browsing

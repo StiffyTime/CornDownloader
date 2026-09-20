@@ -11,15 +11,21 @@ architecture, release process, verification status, and maintainer preferences.
 The code is available under the [MIT license](LICENSE). Contributions remain closed.
 Public Mozilla listing preparation is tracked in [PUBLIC_RELEASE.md](PUBLIC_RELEASE.md).
 
-## Public release candidate: 0.8.1
+## Public release candidate: 0.8.2
 
-[Mozilla upload ZIP](Archive/CornDownloader-0.8.1.zip) · [Privacy policy](PRIVACY.md)
+[Mozilla upload ZIP](Archive/CornDownloader-0.8.2.zip) · [Privacy policy](PRIVACY.md)
 · [Submission instructions](PUBLIC_RELEASE.md)
 
-The source and upload package are version **0.8.1**, requiring **Firefox desktop
+The source and upload package are version **0.8.2**, requiring **Firefox desktop
 142+**. This is an unsigned submission package; Mozilla has not published or signed
-this version yet. The older signed installer below remains version 0.8.0 and does
-not contain the following changes.
+this version yet. The signed installer below is version 0.8.1; it contains the
+privacy changes below but not the new popup improvements in 0.8.2.
+
+New in 0.8.2: rapid Refresh clicks cannot let older responses overwrite the latest
+results or active-download controls. The popup shows its installed version, and
+its detection status is announced to screen readers.
+
+Privacy and reliability changes retained from 0.8.1:
 
 - Firefox's install/upgrade prompt now declares the site URLs, request information
   and authentication data used to download from media servers. No telemetry is added.
@@ -40,9 +46,9 @@ reload the player to capture its final media URL. Four workers remains the defau
 Before public submission, perform the live Firefox checks in
 [docs/REVIEWER_TESTS.md](docs/REVIEWER_TESTS.md), including normal/private HLS and MP4.
 
-## Install version 0.8.0
+## Install version 0.8.1
 
-1. Download the [signed Firefox installer (.xpi)](Archive/deb8f7d0adf14cafaa24-0.8.0.xpi?raw=true).
+1. Download the [signed Firefox installer (.xpi)](Archive/deb8f7d0adf14cafaa24-0.8.1.xpi?raw=true).
 2. In Firefox, open `about:addons`, click the gear menu, and choose
    **Install Add-on From File…**. Select the downloaded `.xpi` and accept the
    installation prompt.
@@ -133,7 +139,7 @@ For temporary development loading, open `about:debugging#/runtime/this-firefox`
 in Firefox, choose **Load Temporary Add-on**, and select this folder's
 `manifest.json`. If it is already loaded temporarily, use its **Reload** button.
 Reload the video page so the updated extension captures fresh playlists.
-[Archive/CornDownloader-0.8.1.zip](Archive/CornDownloader-0.8.1.zip) contains the extension and review notes; it is not a signed
+[Archive/CornDownloader-0.8.2.zip](Archive/CornDownloader-0.8.2.zip) contains the extension and review notes; it is not a signed
 Mozilla release.
 
 Suggested browser checks:

@@ -11,29 +11,76 @@ const tick = () => new Promise(resolve => setImmediate(resolve));
 function harness() {
     const requests = [];
     const timers = new Map();
+    const elements = {
+        'corn-settings': {},
+        status: {},
+        streams: { children: [],
+            appendChild(child) { this.children.push(child); },
+            replaceChildren(...children) { this.children = children; } }
+    };
     let id = 0;
     const context = vm.createContext({
         console,
-        document: { createElement(tagName) {
+        document: { getElementById(id) { return elements[id]; }, createElement(tagName) {
             return { tagName, children: [], style: {}, events: {},
                 appendChild(child) { this.children.push(child); },
                 addEventListener(name, callback) { this.events[name] = callback; },
                 removeAttribute(name) { delete this[name]; } };
         } },
-        browser: { runtime: { sendMessage(message) {
-            return new Promise(resolve => requests.push({ message, resolve }));
+        browser: { tabs: { async query() { return [{ id: 1 }]; } }, runtime: { sendMessage(message) {
+            return new Promise((resolve, reject) => requests.push({ message, resolve, reject }));
         } } },
         setTimeout(fn) { timers.set(++id, fn); return id; },
         clearTimeout(key) { timers.delete(key); }
     });
     vm.runInContext(functions, context);
-    const api = vm.runInContext('({ startPolling, stopPolling, updateJobUI, createMaster, startDownload, createActiveDownloadCard })', context);
+    const api = vm.runInContext('({ startPolling, stopPolling, updateJobUI, createMaster, startDownload, createActiveDownloadCard, loadStreams })', context);
     const ui = { jobId: 'new', statusElement: {}, progressElement: { style: {} },
         downloadButton: {}, cancelButton: { style: {} } };
     context.testUI = ui;
     vm.runInContext('activeJobUI = testUI', context);
-    return { api, requests, timers, ui };
+    return { api, requests, timers, ui, elements };
 }
+
+test('late Refresh results cannot duplicate cards or replace current download controls', async () => {
+    const { api, requests, elements } = harness();
+    const older = api.loadStreams();
+    await tick();
+    const newer = api.loadStreams();
+    await tick();
+    const stream = { type: 'direct', url: 'https://example.com/new.mp4', filename: 'new.mp4' };
+    requests[2].resolve([stream]);
+    requests[3].resolve({ job: { id: 'new', kind: 'direct', mediaUrl: stream.url, status: 'saving', bytes: 5 } });
+    await newer;
+    const currentCard = elements.streams.children[0];
+    requests[0].resolve([{ ...stream, url: 'https://example.com/old.mp4' }]);
+    requests[1].resolve({ job: { id: 'old', status: 'waiting' } });
+    await older;
+    assert.equal(elements.streams.children.length, 1);
+    assert.equal(elements.streams.children[0], currentCard);
+    assert.equal(elements.status.textContent, '1 video detected');
+    const walk = node => [node, ...(node.children || []).flatMap(walk)];
+    walk(currentCard).find(node => node.textContent === 'Cancel').events.click();
+    assert.equal(requests.at(-1).message.type, 'CANCEL_DOWNLOAD');
+    assert.equal(requests.at(-1).message.jobId, 'new');
+});
+
+test('a stale Refresh failure cannot overwrite a newer empty result', async () => {
+    const { api, requests, elements } = harness();
+    const older = api.loadStreams();
+    await tick();
+    const newer = api.loadStreams();
+    await tick();
+    requests[2].resolve([]);
+    requests[3].resolve({ job: null });
+    await newer;
+    requests[0].reject(new Error('Old request failed'));
+    requests[1].resolve({ job: null });
+    await older;
+    assert.equal(elements.status.textContent, 'No HLS or MP4 videos detected.');
+    assert.equal(elements.streams.children.length, 1);
+    assert.equal(elements.streams.children[0].className, 'help');
+});
 
 test('old polling responses cannot overwrite or stop a newer job', async () => {
     const { api, requests, timers, ui } = harness();

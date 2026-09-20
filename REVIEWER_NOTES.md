@@ -1,10 +1,15 @@
-# Corn Downloader 0.8.1 — Mozilla reviewer notes
+# Corn Downloader 0.8.2 — Mozilla reviewer notes
 
 Intended distribution: public listing on AMO under the existing add-on ID
 `corn-downloader@local`. Firefox desktop 142+. MIT license. Publication is handled
 by the maintainer; this package is unsigned and has not been submitted by the agent.
 
 ## Purpose and source
+
+Version 0.8.2 fixes overlapping popup refreshes: only the newest response may
+update the results and active-download controls. It also displays the installed
+version and adds a screen-reader status announcement. Permissions, media requests
+and privacy behaviour are unchanged from 0.8.1.
 
 Detect and download supported unencrypted HLS streams and direct MP4 media after
 an explicit click in the extension popup. No telemetry, analytics, advertising,

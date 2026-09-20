@@ -1,7 +1,7 @@
 # Release testing procedure
 
 Updated 2026-09-21. This is a test plan, not a completed Firefox
-release sign-off. The release candidate is 0.8.1, requiring Firefox desktop 142+.
+release sign-off. The release candidate is 0.8.2, requiring Firefox desktop 142+.
 
 Video examples supplied in conversation are for troubleshooting only. Do not copy
 their URLs or titles into public documentation, listing text, screenshots, or
@@ -52,8 +52,8 @@ Do not mark the MP4 download test passed merely because the page opens.
 
 ## Release checks to record for both formats
 
-Automated checks: 42 tests passed; syntax checks passed; web-ext 10.6.0 lint on the
-0.8.1 package returned 0 errors, 0 warnings and 0 notices. ZIP contents are verified
+Automated checks: 44 tests passed; syntax checks passed; web-ext 10.6.0 lint on the
+0.8.2 package returned 0 errors, 0 warnings and 0 notices. ZIP contents are verified
 against source. These checks were run by the agent on 2026-09-21.
 
 Live Firefox acceptance remains pending. The available connected browser is the
@@ -65,6 +65,8 @@ pending until actually performed on the release candidate:
 
 - [ ] Detection and completed download; saved file playback/audio/duration.
 - [ ] Popup close/reopen retains accurate active-job progress.
+- [ ] Popup displays v0.8.2; rapid Refresh clicks leave one current result list
+      and retain working progress/Cancel controls during an active download.
 - [ ] Cancel while downloading, and dismiss the save dialog without a stuck job.
 - [ ] Clear removes detected entries; closing the source tab follows documented
       active-job/retention behaviour.
@@ -73,5 +75,5 @@ pending until actually performed on the release candidate:
 - [ ] A second HLS quality and worker choices 2/4/6/8; default remains four.
 
 Browser playback above and mocked regression tests do not replace these checks.
-The current REVIEWER_NOTES.md describes 0.8.1. Record actual Firefox test outcomes
+The current REVIEWER_NOTES.md describes 0.8.2. Record actual Firefox test outcomes
 here before treating this candidate as accepted for publication.

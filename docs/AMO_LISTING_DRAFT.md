@@ -1,4 +1,4 @@
-# Corn Downloader — Mozilla listing text for 0.8.1
+# Corn Downloader — Mozilla listing text for 0.8.2
 
 Use these fields when submitting the new version under the existing add-on entry.
 Do not copy these instructions into the public description. No troubleshooting
@@ -50,6 +50,10 @@ See the README for installation, usage and limitations. Individual support and
 external contributions are not offered.
 
 ## Remaining form fields
+
+Version 0.8.2 release notes: Improved popup refresh reliability when Refresh is
+clicked repeatedly. Added an installed-version label and screen-reader detection
+status announcements. No changes to permissions or privacy behaviour.
 
 - License: MIT.
 - Homepage: https://github.com/StiffyTime/CornDownloader

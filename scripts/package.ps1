@@ -22,6 +22,7 @@ $archiveDir = Join-Path $projectRoot 'Archive'
 [IO.Directory]::CreateDirectory($archiveDir) | Out-Null
 $archivePath = Join-Path $archiveDir "CornDownloader-$($manifest.version).zip"
 Add-Type -AssemblyName System.IO.Compression
+Add-Type -AssemblyName System.IO.Compression.FileSystem
 $output = [IO.File]::Open($archivePath, [IO.FileMode]::Create, [IO.FileAccess]::Write)
 $archive = [IO.Compression.ZipArchive]::new($output, [IO.Compression.ZipArchiveMode]::Create)
 try {

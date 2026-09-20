@@ -1,4 +1,5 @@
 let currentTabId = null;
+let streamsGeneration = 0;
 
 let pollingTimer = null;
 let pollingGeneration = 0;
@@ -301,12 +302,7 @@ async function createSettingsPanel() {
         return;
     }
 
-    /*
-     * popup.html does not contain a <main> element.
-     *
-     * Use the existing streams container as our
-     * insertion point instead.
-     */
+    // Insert settings before the results inside <main>.
     const streams =
         document.getElementById(
             "streams"
@@ -1450,6 +1446,7 @@ function createActiveDownloadCard(job) {
 }
 
 async function loadStreams() {
+    const generation = ++streamsGeneration;
     stopPolling();
 
     activeJobUI =
@@ -1461,10 +1458,12 @@ async function loadStreams() {
      * This is now safe with the existing popup.html.
      */
     await createSettingsPanel();
+    if (generation !== streamsGeneration) return;
 
 
     const tab =
         await getCurrentTab();
+    if (generation !== streamsGeneration) return;
 
 
     if (
@@ -1539,6 +1538,9 @@ async function loadStreams() {
             ]);
 
 
+        // A newer Refresh/Clear owns the results and active-download controls.
+        if (generation !== streamsGeneration) return;
+
         const existingJob =
             jobResult?.job ||
             null;
@@ -1590,6 +1592,7 @@ async function loadStreams() {
         }
 
     } catch (error) {
+        if (generation !== streamsGeneration) return;
         console.error(
             "[Corn popup] Could not load streams:",
             error?.name
@@ -1677,6 +1680,11 @@ if (clearButton) {
 /* =========================================================
    INITIAL START
 ========================================================= */
+
+const versionElement = document.getElementById("version");
+if (versionElement) {
+    versionElement.textContent = `v${browser.runtime.getManifest().version}`;
+}
 
 loadStreams().catch(
     error => {

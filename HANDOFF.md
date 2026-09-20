@@ -6,15 +6,18 @@ the original Codex conversation. Read README.md and REVIEWER_NOTES.md as well.
 ## Current state
 
 - Repository: https://github.com/StiffyTime/CornDownloader, branch `main`.
-- Source/upload candidate: **0.8.1**, Firefox desktop 142+, Manifest V3.
+- Source/upload candidate: **0.8.2**, Firefox desktop 142+, Manifest V3.
 - Supports unencrypted HLS and direct HTTP(S) MP4 downloads.
-- Latest signed installer remains `Archive/deb8f7d0adf14cafaa24-0.8.0.xpi`.
-- New unsigned submission package: `Archive/CornDownloader-0.8.1.zip`.
+- Latest signed installer: `Archive/deb8f7d0adf14cafaa24-0.8.1.xpi`.
+- New unsigned submission package: `Archive/CornDownloader-0.8.2.zip`.
 - Older installers and ZIPs are retained under Archive. Do not confuse them with
   the current version or modify a signed XPI in place.
 - Source documentation can be newer than documentation bundled inside an already
   signed installer. That does not change its runtime code or invalidate its signature.
-- Public-release privacy changes are implemented in 0.8.1. Read PUBLIC_RELEASE.md
+- Version 0.8.2 prevents stale Refresh results/errors from overwriting the latest
+  popup results and controls. It also displays the installed version and makes
+  detection status accessible to screen readers.
+- Public-release privacy changes from 0.8.1 are retained. Read PUBLIC_RELEASE.md
   for upload instructions and docs/REVIEWER_TESTS.md for manual acceptance checks.
   The maintainer will upload; no new version has been submitted or signed by the agent.
 - Keep private-window support (explicit maintainer choice). Both save paths set the
@@ -77,7 +80,7 @@ pool, and are not buffered in memory by the extension. One active job per tab.
 
 ## Verification
 
-On 2026-09-21 all **42 tests passed**, and all three runtime scripts passed syntax
+On 2026-09-21 all **44 tests passed**, and all three runtime scripts passed syntax
 checks. No dependencies need installing; a modern Node.js runtime is sufficient:
 
 ```sh
@@ -87,7 +90,7 @@ node --check direct.js
 node --check popup/popup.js
 ```
 
-Mozilla web-ext 10.6.0 lint on the extracted 0.8.1 upload package reported
+Mozilla web-ext 10.6.0 lint on the extracted 0.8.2 upload package reported
 **0 errors, 0 warnings, 0 notices**, with no unknown minified files. The package
 script compares every ZIP entry against source and records a SHA-256 checksum.
 No live Firefox download acceptance result or AMO submission is recorded yet.
