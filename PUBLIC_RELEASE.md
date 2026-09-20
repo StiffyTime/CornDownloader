@@ -1,128 +1,86 @@
-# Mozilla public release preparation
+# Corn Downloader 0.8.1 — public submission
 
-Status: planning/review, not submitted. Current runtime version is 0.8.0.
-Suggested next release: 0.8.1, after the items below are resolved.
+Status: release candidate prepared locally. Not submitted, signed or published.
+The maintainer will upload it to Mozilla after the live Firefox checks below.
 
-## Agreed decisions
+## Files to use
 
-- Keep the name **Corn Downloader**.
-- License: **MIT**, copyright holder **StiffyTime**, as chosen by the maintainer.
-- Firefox desktop only for the initial public listing.
-- Keep the existing add-on identity `corn-downloader@local` and use the Mozilla
-  account that already owns the signed add-on. Do not create a duplicate identity.
-- External contributions remain closed. A public listing does not require enabling
-  GitHub Issues or Pull Requests. The developer must still respond to Mozilla reviews.
-- Help page: https://github.com/StiffyTime/CornDownloader#readme . Individual support
-  is not offered. Keep personal email out of public metadata; Mozilla can use the
-  developer-account contact for review correspondence.
+- Upload: Archive/CornDownloader-0.8.1.zip (unsigned extension package).
+- Checksum: Archive/CornDownloader-0.8.1.zip.sha256.
+- Listing fields: docs/AMO_LISTING_DRAFT.md (final text for this candidate).
+- Privacy policy: PRIVACY.md. The popup also links to bundled privacy.html.
+- Reviewer explanation: REVIEWER_NOTES.md.
+- Listing icon: icons/corn-128.png. No screenshots of browsing examples are included.
 
-## Verified starting point
+The same add-on ID, corn-downloader@local, is retained. Do not upload GitHub's
+whole-repository ZIP, modify an old signed XPI, or submit this as a different add-on.
 
-- All 27 Node regression tests pass on the reviewed source.
-- Mozilla web-ext lint, run against a temporary runtime-only copy of 0.8.0:
-  **0 errors, 0 warnings, 0 notices**.
-- Linter metadata includes background.js in `unknownMinifiedFiles` despite this
-  being handwritten, readable source without a build step. No warning was emitted;
-  explain the source arrangement if a reviewer asks. Automated lint is not approval
-  and does not replace browser tests or privacy review.
-- No telemetry, external processing service, remote executable code, or dependencies
-  bundled into the extension. Current privacy claims still need the review below.
-- Existing runtime files and signed installers are unchanged by this preparation.
+## Implemented for 0.8.1
 
-## Changes to complete before submission
+- MIT license, Corn Downloader name, no individual support; README is the help page.
+- Firefox 142+ built-in required disclosure of browsingActivity, websiteContent and
+  authenticationInfo for media-server requests. No telemetry or developer endpoint.
+- Private HLS save context; credential-free background fetch plus selected captured
+  headers; no HLS redirects or automatic background-cookie usage.
+- Cross-origin HLS fallbacks discard captured headers. CDN reconstruction does not
+  copy a different origin's query parameters to the observed host.
+- Bounded manifest capture (512 KiB, 15 seconds, 16 concurrent), 24 records per tab,
+  128 overall; detach/error cleanup preserves player traffic.
+- Clear/navigation/closure data cleanup and source-tab-close cancellation; active
+  download controls remain available after clearing detections.
+- Native MP4 container transfers are rejected instead of using a different cookie jar.
+- Privacy page, policy, listing icon, reviewer notes and explicit package script.
 
-1. **Privacy disclosure and consent.** The manifest currently declares
-   `data_collection_permissions.required: ["none"]`. HLS downloads replay player
-   request headers (including cookies where present); MP4 downloads can send Referer
-   and Authorization and use Firefox's cookies. No analytics does not mean no data
-   transmission. Check the final data flows against Mozilla's taxonomy, resolve the
-   relevant websiteContent/browsingActivity/authenticationInfo declarations, and
-   implement appropriate consent. Do not claim the `none` declaration is established
-   as correct for the public release. Consider Firefox 140+ as the minimum if using
-   only Firefox's built-in consent system. Review any effect on existing users.
-2. **Private browsing and data lifetime.** MP4 forwards `incognito` to downloads;
-   HLS currently does not. Fix the HLS save context and test it, or explicitly decide
-   to disallow private-window operation until it is supported correctly. Audit header
-   replay across redirects/origins, and cookie-store behaviour. Completed jobs retain
-   media URLs in memory after source-tab closure; align cleanup and privacy wording.
-3. **Bound memory and capture lifetime.** Manifest response capture currently buffers
-   the entire response without a size cap; manifestRecords is uncapped until Clear or
-   tab closure. Add limits and stream-filter error cleanup before wider deployment.
-   Ensure cleanup does not interrupt page playback or lose active download controls.
-4. **Listing and presentation.** Add a recognizable icon in the manifest and toolbar;
-   take screenshots of the real popup with non-sensitive test media. Supply a concise
-   summary, accurate feature/limitation description, MIT selection, privacy policy,
-   and reviewer instructions. Draft text is in docs/AMO_LISTING_DRAFT.md and
-   docs/PRIVACY_DRAFT.md. Use the agreed README help page with no individual support;
-   do not expose the personal email previously removed from Git history.
-5. **Reproducible reviewer tests.** Provide accessible HLS and MP4 test pages and
-   concrete steps. Test installed Firefox behaviour, file playback/audio/duration,
-   cancellation, reopen-popup progress, granted/revoked host access, and normal/private
-   contexts as supported. The current tests mock Firefox APIs and do not cover these
-   full browser behaviours.
-6. **Release packaging.** Bump both version fields after implementation; include icons,
-   LICENSE, privacy text and runtime source using an explicit file list. Update reviewer
-   notes for the listed channel, rerun lint/tests, and create a fresh unsigned upload
-   ZIP. Never edit or repackage the existing signed XPI as the new release.
+## Verification and remaining acceptance checks
 
-These are review recommendations, not claims that Mozilla has rejected 0.8.0.
-Separate-audio muxing, DASH, live recording and disk-streaming HLS can remain
-unsupported if the listing is explicit. Do not promise support for every video site.
+Verified 2026-09-21: **42 automated tests passed**, JavaScript syntax checks passed,
+and Mozilla web-ext 10.6.0 reported **0 errors, 0 warnings, 0 notices** on the
+extracted upload ZIP. No unknown minified files were reported. The ZIP is checked
+byte-for-byte against its 16 source files by the package script.
 
-## Needed from the maintainer
+Run tests with `node --test tests/background.test.cjs tests/popup.test.cjs` and
+syntax checks with `node --check` for background.js, direct.js and popup/popup.js.
+The test suite uses mocked Firefox APIs. See docs/REVIEWER_TESTS.md for the current
+record of checks; an automated pass is not proof of live-site compatibility.
 
-- Existing Mozilla management link supplied:
-  https://addons.mozilla.org/en-US/developers/addon/deb8f7d0adf14cafaa24/edit
-  The signed-out browser shows Not Found; the private entry and its distribution
-  settings have not been inspected. Use the account that owns it when submitting.
-  Do not put credentials in the repository or chat.
-- The maintainer's MP4 example was for troubleshooting only, not publication.
-  Do not include conversation-supplied video links or titles in the listing,
-  repository documentation, screenshots, or reviewer submissions. Use generic
-  feature descriptions publicly. See docs/REVIEWER_TESTS.md for testing procedures.
-  No private HLS browsing examples are needed or should be requested.
-- Any preferred icon direction (otherwise a simple corn/download design is reasonable).
-- Public help/support choice is settled: use the GitHub README, with no individual
-  support. Keep the private Mozilla developer-account contact reachable.
-- A decision on any new consent prompt/private-browsing scope after the implementation
-  review; this is not a reason to weaken the required disclosure or privacy safeguards.
+Before submitting, temporarily load manifest.json in Firefox 142+ using
+about:debugging#/runtime/this-firefox. Test one HLS and one MP4 download in normal
+and private windows, save/cancel/reopen-popup behaviour, and playable output files.
+Keep these checks pending until actually performed. No private browsing examples
+need to be sent to anyone. Use neutral test media if Mozilla requests a reproduction.
 
-## Submission and updates
+No listing screenshots have been fabricated. Screenshots may be added from the
+real Firefox popup, with sensitive information and example video titles absent.
 
-Use the existing add-on's developer management page to prepare a higher-version
-release in the **listed / On this site** channel. The exact account page needs
-inspection before giving click-by-click conversion instructions. Complete metadata,
-validation, and any review questions before calling it published.
+## Upload steps
 
-Submission sequence once the release candidate is ready:
+1. Sign into the Mozilla account that owns the existing add-on and open:
+   https://addons.mozilla.org/en-US/developers/addon/deb8f7d0adf14cafaa24/edit
+2. Open Manage Status & Versions and start a new version submission for this entry.
+   Choose On this site (listed) for hosting/distribution. Signed-in intermediate
+   labels have not been inspected and may vary.
+3. Upload Archive/CornDownloader-0.8.1.zip. Resolve any validation errors and select
+   Firefox desktop compatibility. No compilation/minification source build is used.
+4. Fill the listing using docs/AMO_LISTING_DRAFT.md, select MIT, paste PRIVACY.md and
+   reviewer notes, and add the icon. Keep personal email out of public fields.
+5. Submit and check the actual review/publication status. Respond to Mozilla review
+   messages using the existing private account contact. A GitHub push is separate.
+6. Once signed, retain Mozilla's XPI unchanged under Archive, verify its source and
+   version, and update README/HANDOFF with the public listing and signed installer.
 
-1. Sign into the existing owner's Mozilla account and open the management link above.
-2. Open **Manage Status & Versions** and start a new version submission for this
-   existing add-on. In the hosting/channel choice, select **On this site** (listed).
-   The signed-in page has not been inspected, so intermediate button labels may vary.
-3. Upload the newly prepared runtime ZIP with a higher version, keeping the same
-   add-on ID. Do not upload GitHub's whole-repository ZIP or reuse version 0.8.0.
-4. Resolve validation issues and select Firefox desktop compatibility. The current
-   source has no compilation/bundling step; answer the source-code question accordingly.
-5. Complete the public description, MIT license, README help URL, finalized privacy
-   policy, icon/screenshots, and reviewer notes. Keep troubleshooting video examples
-   and personal email out of public fields.
-6. Submit the version, then check its actual signing/review/publication status and
-   any Mozilla messages. A GitHub push alone does not publish on Mozilla.
+No custom update_url is configured. Firefox can update existing installations to
+an eligible higher-version AMO-listed release with this same ID once published.
 
-The repository currently contains preparation drafts, not a finished 0.8.1 upload.
-Complete the release checks above before following the upload step.
+## Rebuild
 
-Keep the same add-on ID and omit a custom update_url. Mozilla documents that Firefox
-checks AMO for higher-version listed releases even for self-distributed installations
-without a custom update URL. This corrects the earlier simplified manual-update-only
-wording. Do not guarantee delivery until an eligible listed release exists.
+Run `powershell -NoProfile -File scripts/package.ps1` from the repository. The script
+uses an explicit file list, fixed ZIP entry timestamps and byte-for-byte verification,
+then writes a SHA-256 file. No dependencies or runtime build step are required.
 
-## Sources
+## References
 
 - https://extensionworkshop.com/documentation/publish/submitting-an-add-on/
-- https://extensionworkshop.com/documentation/publish/add-on-policies/
 - https://extensionworkshop.com/documentation/develop/firefox-builtin-data-consent/
+- https://extensionworkshop.com/documentation/publish/add-on-policies/
 - https://extensionworkshop.com/documentation/publish/self-distribution/
-- https://extensionworkshop.com/documentation/develop/web-ext-command-reference/
-- https://opensource.org/license/mit
+- https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/API/downloads/download

@@ -48,7 +48,10 @@ function harness(overrides = {}) {
         fetchWithPlayerHeaders, downloadSegmentsConcurrently, delay,
         manifestRecords, pendingReplays, downloadJobs, waitingDownloads,
         objectUrlsByDownload, jobByFirefoxDownload, directMediaRecords, mediaRequestHeaders,
-        getDirectStreams, startDirectDownload, getDownloadStatus, clearDirectMedia
+        getDirectStreams, startDirectDownload, getDownloadStatus, clearDirectMedia,
+        captureManifestResponse, activeCaptures, clearTabMedia, jobByTab,
+        MAX_MANIFEST_BYTES, MAX_MANIFESTS_PER_TAB, MAX_MANIFESTS, MAX_ACTIVE_CAPTURES,
+        downloadOneResource, reconstructSegmentUrl
     })`, context);
     const headerListener = browser.webRequest.onBeforeSendHeaders.listeners[0];
     return { api, browser, context, timers, revoked, headerListener };
@@ -72,6 +75,195 @@ test('identical playlists remain available independently in two tabs', () => {
     api.storeManifest({ tabId: -1, url }, playlist);
     api.storeManifest({ tabId: 3, url }, '<html>Error</html>');
     assert.equal(api.manifestRecords.size, 2);
+});
+
+function captureFixture(h, requestId = 'capture', tabId = 1) {
+    const forwarded = [];
+    const filter = { closed: false, detached: false,
+        write(data) { forwarded.push(Buffer.from(data)); },
+        close() { this.closed = true; }, disconnect() { this.detached = true; } };
+    h.browser.webRequest.filterResponseData = () => filter;
+    h.api.captureManifestResponse({ requestId, tabId, url });
+    const send = text => {
+        const bytes = new TextEncoder().encode(text);
+        filter.ondata({ data: bytes.buffer });
+    };
+    return { filter, send, forwarded };
+}
+
+test('capture forwards the original response and releases buffers and timer on completion', () => {
+    const h = harness();
+    const { filter, send, forwarded } = captureFixture(h);
+    send(playlist.slice(0, 12)); send(playlist.slice(12)); filter.onstop();
+    assert.equal(Buffer.concat(forwarded).toString(), playlist);
+    assert.equal(h.api.manifestRecords.size, 1);
+    assert.equal(filter.closed, true);
+    assert.equal(h.api.activeCaptures.size, 0);
+    assert.equal(h.timers.size, 0);
+});
+
+test('oversized, errored, expired and cleared captures cannot store a partial playlist', () => {
+    for (const cause of ['size', 'error', 'timeout', 'clear']) {
+        const h = harness();
+        const { filter, send } = captureFixture(h);
+        send(playlist);
+        if (cause === 'size') send(' '.repeat(h.api.MAX_MANIFEST_BYTES));
+        if (cause === 'error') filter.onerror();
+        if (cause === 'timeout') [...h.timers.values()][0].fn();
+        if (cause === 'clear') h.api.clearTabMedia(1);
+        filter.onstop();
+        assert.equal(filter.detached, true, cause);
+        assert.equal(h.api.activeCaptures.size, 0, cause);
+        assert.equal(h.api.manifestRecords.size, 0, cause);
+        assert.equal(h.timers.size, 0, cause);
+    }
+});
+
+test('capture and record limits bound many requests without filtering excess playback', () => {
+    const h = harness();
+    let created = 0;
+    h.browser.webRequest.filterResponseData = () => { created++; return { disconnect() {} }; };
+    for (let i = 0; i < 100; i++) h.api.captureManifestResponse({ tabId: 1, requestId: i, url });
+    assert.equal(created, h.api.MAX_ACTIVE_CAPTURES);
+    for (let i = 0; i < 200; i++) h.api.storeManifest({ tabId: 1, url: `${url}?${i}` }, playlist);
+    assert.equal(h.api.manifestRecords.size, h.api.MAX_MANIFESTS_PER_TAB);
+    for (let i = 2; i < 200; i++) h.api.storeManifest({ tabId: i, url }, playlist);
+    assert.equal(h.api.manifestRecords.size, h.api.MAX_MANIFESTS);
+});
+
+test('HLS replays omit ambient credentials, reject redirects and discard unrelated headers', async () => {
+    const h = harness();
+    let sent;
+    h.context.fetch = async (requestUrl, options) => {
+        assert.equal(options.credentials, 'omit');
+        assert.equal(options.redirect, 'error');
+        assert.equal(options.cache, 'no-store');
+        sent = h.headerListener({ tabId: -1, url: requestUrl, requestHeaders: [
+            ...Object.entries(options.headers).map(([name, value]) => ({ name, value })),
+            { name: 'Cookie', value: 'ambient=normal' }, { name: 'Authorization', value: 'ambient' }
+        ] }).requestHeaders;
+        return { ok: true, status: 200, arrayBuffer: async () => new Uint8Array([1]).buffer };
+    };
+    await h.api.fetchWithPlayerHeaders(segment, [
+        { name: 'Cookie', value: 'private=source' }, { name: 'X-Account-Secret', value: 'unrelated' }
+    ], new AbortController().signal);
+    assert.equal(sent.find(header => header.name === 'Cookie').value, 'private=source');
+    assert.ok(!sent.some(header => /authorization|x-account|x-corn/i.test(header.name)));
+    await h.api.fetchWithPlayerHeaders(segment, [], new AbortController().signal);
+    assert.ok(!sent.some(header => /cookie|authorization/i.test(header.name)));
+});
+
+test('fallback to another HLS origin never copies captured player headers', async () => {
+    const h = harness();
+    const calls = [];
+    h.context.fetchWithPlayerHeaders = async (candidate, headers) => {
+        calls.push({ candidate, headers });
+        return calls.length === 1 ? { ok: false } : { ok: true, buffer: new ArrayBuffer(1) };
+    };
+    await h.api.downloadOneResource({}, 'https://another.example/one.ts', segment,
+        [{ name: 'Cookie', value: 'session=source' }, { name: 'Referer', value: 'https://private.example' }],
+        new AbortController().signal, 'test');
+    assert.equal(calls[0].headers.length, 2);
+    assert.equal(calls[1].headers.length, 0);
+});
+
+test('private HLS saves use private download history', async () => {
+    const h = harness();
+    h.api.storeManifest({ tabId: 1, url, incognito: true }, playlist);
+    const result = await h.api.startDownload({ tabId: 1, mediaUrl: url });
+    const job = h.api.downloadJobs.get(result.job.id);
+    h.api.waitingDownloads.delete(1);
+    let options;
+    h.browser.downloads.download = async value => { options = value; return 99; };
+    await h.api.runDownloadJob(job, h.api.findMediaRecord(1, url), segment, []);
+    assert.equal(options.incognito, true);
+});
+
+test('closed tabs cancel and forget waiting jobs and captured media', async () => {
+    const h = harness();
+    const { job } = await jobFixture(h);
+    h.browser.tabs.onRemoved.listeners.forEach(listener => listener(1));
+    await tick();
+    assert.equal(h.api.manifestRecords.size, 0);
+    assert.equal(h.api.waitingDownloads.size, 0);
+    assert.equal(h.api.downloadJobs.size, 0);
+    assert.equal(h.api.jobByTab.size, 0);
+    assert.equal(job.mediaUrl, null);
+});
+
+test('navigation clears detections and completed jobs, and late MP4 responses stay cleared', async () => {
+    const h = harness();
+    const details = captureMp4(h);
+    h.browser.downloads.search = async () => [{ id: 99, state: 'complete' }];
+    h.api.startDirectDownload({ tabId: 1, mediaUrl: details.url });
+    await tick();
+    h.browser.webRequest.onBeforeRequest.listeners[0]({ tabId: 1, type: 'main_frame', url: 'https://example.com/new-page' });
+    h.browser.webRequest.onHeadersReceived.listeners[0](details);
+    assert.equal(h.api.getDirectStreams(1).length, 0);
+    assert.equal(h.api.downloadJobs.size, 0);
+});
+
+test('closing a tab during the MP4 save dialog cancels and forgets the eventual download', async () => {
+    const h = harness();
+    const details = captureMp4(h, { incognito: true });
+    const pending = deferred();
+    const cancelled = [];
+    h.browser.downloads.download = () => pending.promise;
+    h.browser.downloads.cancel = async id => { cancelled.push(id); };
+    h.browser.downloads.search = async () => [{ id: 99, state: 'interrupted' }];
+    h.api.startDirectDownload({ tabId: 1, mediaUrl: details.url });
+    await tick();
+    h.browser.tabs.onRemoved.listeners.forEach(listener => listener(1));
+    pending.resolve(99);
+    await tick();
+    assert.deepEqual(cancelled, [99]);
+    assert.equal(h.api.downloadJobs.size, 0);
+    assert.equal(h.api.jobByFirefoxDownload.size, 0);
+});
+
+test('container MP4 downloads fail clearly instead of silently using normal cookies', () => {
+    const h = harness();
+    const details = captureMp4(h, { cookieStoreId: 'firefox-container-2' });
+    const result = h.api.startDirectDownload({ tabId: 1, mediaUrl: details.url });
+    assert.equal(result.success, false);
+    assert.match(result.error, /container/);
+    assert.equal(h.api.downloadJobs.size, 0);
+});
+
+test('cached MP4 responses remain detectable without a send-headers event', () => {
+    const h = harness();
+    const details = { tabId: 1, requestId: 'cached', method: 'GET', type: 'media',
+        url: 'https://media.example/cached.mp4', statusCode: 200,
+        responseHeaders: [{ name: 'Content-Type', value: 'video/mp4' }] };
+    h.browser.webRequest.onBeforeRequest.listeners.forEach(listener => listener(details));
+    h.browser.webRequest.onHeadersReceived.listeners[0](details);
+    assert.equal(h.api.getDirectStreams(1).length, 1);
+    h.api.clearTabMedia(1);
+    h.browser.webRequest.onHeadersReceived.listeners[0](details);
+    assert.equal(h.api.getDirectStreams(1).length, 0);
+});
+
+test('CDN reconstruction never sends another origin\'s query credentials to the observed host', () => {
+    const h = harness();
+    const candidate = new URL(h.api.reconstructSegmentUrl(
+        'https://old.example/segment.ts?old_secret=private',
+        'https://new.example/first.ts?observed_token=allowed'));
+    assert.equal(candidate.host, 'new.example');
+    assert.equal(candidate.searchParams.has('old_secret'), false);
+    assert.equal(candidate.searchParams.get('observed_token'), 'allowed');
+});
+
+test('redirected capture replacement is not removed by late events from the old filter', () => {
+    const h = harness();
+    const first = captureFixture(h);
+    const second = captureFixture(h);
+    assert.equal(first.filter.detached, true);
+    first.filter.onerror();
+    assert.equal(h.api.activeCaptures.size, 1);
+    second.send(playlist); second.filter.onstop();
+    assert.equal(h.api.manifestRecords.size, 1);
+    assert.equal(h.api.activeCaptures.size, 0);
+    assert.equal(h.timers.size, 0);
 });
 
 test('uncaptured qualities do not borrow the only captured playlist', () => {

@@ -1,7 +1,7 @@
 # Release testing procedure
 
-Preparation notes dated 2026-09-20. This is a test plan, not a completed Firefox
-release sign-off. The current runtime remains 0.8.0.
+Updated 2026-09-21. This is a test plan, not a completed Firefox
+release sign-off. The release candidate is 0.8.1, requiring Firefox desktop 142+.
 
 Video examples supplied in conversation are for troubleshooting only. Do not copy
 their URLs or titles into public documentation, listing text, screenshots, or
@@ -52,6 +52,14 @@ Do not mark the MP4 download test passed merely because the page opens.
 
 ## Release checks to record for both formats
 
+Automated checks: 42 tests passed; syntax checks passed; web-ext 10.6.0 lint on the
+0.8.1 package returned 0 errors, 0 warnings and 0 notices. ZIP contents are verified
+against source. These checks were run by the agent on 2026-09-21.
+
+Live Firefox acceptance remains pending. The available connected browser is the
+in-app browser, which cannot validate this Firefox extension's private download
+context, cookie behaviour, install/upgrade consent prompt or native save dialog.
+
 Record extension version, Firefox version, OS, date, and outcome. Leave checks
 pending until actually performed on the release candidate:
 
@@ -64,6 +72,6 @@ pending until actually performed on the release candidate:
 - [ ] Private-window behaviour after privacy fixes, if supported in the release.
 - [ ] A second HLS quality and worker choices 2/4/6/8; default remains four.
 
-Browser playback above and existing mocked regression tests do not replace these
-checks. Copy the final verified procedure into REVIEWER_NOTES.md when packaging;
-do not present the historical unlisted 0.8.0 notes as finalized listed-release notes.
+Browser playback above and mocked regression tests do not replace these checks.
+The current REVIEWER_NOTES.md describes 0.8.1. Record actual Firefox test outcomes
+here before treating this candidate as accepted for publication.

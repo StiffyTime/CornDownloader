@@ -11,6 +11,35 @@ architecture, release process, verification status, and maintainer preferences.
 The code is available under the [MIT license](LICENSE). Contributions remain closed.
 Public Mozilla listing preparation is tracked in [PUBLIC_RELEASE.md](PUBLIC_RELEASE.md).
 
+## Public release candidate: 0.8.1
+
+[Mozilla upload ZIP](Archive/CornDownloader-0.8.1.zip) · [Privacy policy](PRIVACY.md)
+· [Submission instructions](PUBLIC_RELEASE.md)
+
+The source and upload package are version **0.8.1**, requiring **Firefox desktop
+142+**. This is an unsigned submission package; Mozilla has not published or signed
+this version yet. The older signed installer below remains version 0.8.0 and does
+not contain the following changes.
+
+- Firefox's install/upgrade prompt now declares the site URLs, request information
+  and authentication data used to download from media servers. No telemetry is added.
+- Private HLS saves are marked private. HLS requests use only selected captured
+  headers, omit background-session cookies, reject redirects and bypass the cache.
+- Clear/navigation/tab closure clean up captured media and completed jobs. Closing
+  the source tab cancels its active job. Progress and Cancel remain available after
+  clearing detections while a download is active.
+- Playlist capture is bounded by size, time, count and concurrency.
+- The popup links to an included privacy page; a corn/download icon is included.
+- Direct MP4 downloads from container tabs are explicitly unsupported. Use a normal
+  or private tab; the extension never silently substitutes a normal cookie store.
+
+Private-window support remains available when allowed in Firefox. Saved videos
+remain on disk. HLS with redirects or custom authentication headers may not work;
+reload the player to capture its final media URL. Four workers remains the default.
+
+Before public submission, perform the live Firefox checks in
+[docs/REVIEWER_TESTS.md](docs/REVIEWER_TESTS.md), including normal/private HLS and MP4.
+
 ## Install version 0.8.0
 
 1. Download the [signed Firefox installer (.xpi)](Archive/deb8f7d0adf14cafaa24-0.8.0.xpi?raw=true).
@@ -104,7 +133,7 @@ For temporary development loading, open `about:debugging#/runtime/this-firefox`
 in Firefox, choose **Load Temporary Add-on**, and select this folder's
 `manifest.json`. If it is already loaded temporarily, use its **Reload** button.
 Reload the video page so the updated extension captures fresh playlists.
-[Archive/CornDownloader-0.8.0.zip](Archive/CornDownloader-0.8.0.zip) contains the extension and review notes; it is not a signed
+[Archive/CornDownloader-0.8.1.zip](Archive/CornDownloader-0.8.1.zip) contains the extension and review notes; it is not a signed
 Mozilla release.
 
 Suggested browser checks:
@@ -148,10 +177,9 @@ authentication, or media layout. Live-site validation remains to be done.
    popup builds cards from master playlists. Content-type detection and standalone
    media playlist cards would cover more sites. Live playlists currently represent
    only the captured window; full live recording is not implemented.
-4. **Tighten stream identity and lifecycle.** Full-path matching still permits CDN
-   mirrors, but unrelated hosts with identical paths can be ambiguous. Old captures
-   also survive navigation within a tab until Clear or tab closure. Explicit
-   navigation handling should preserve controls for any already-running job.
+4. **Tighten stream identity.** Full-path matching still permits CDN mirrors, but
+   unrelated hosts with identical paths can be ambiguous. Version 0.8.1 clears
+   detections on top-level navigation while preserving controls for active jobs.
 
 Encryption/DRM handling and byte-range downloading are not implemented.
 

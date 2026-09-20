@@ -1,5 +1,5 @@
 /*
- * Corn Downloader 0.8.0
+ * Corn Downloader 0.8.1
  *
  * Privacy:
  * - No telemetry
@@ -22,6 +22,42 @@ const MAX_RESOURCE_ATTEMPTS = 4;
 const BASE_RETRY_DELAY_MS = 400;
 const RESOURCE_TIMEOUT_MS = 60000;
 const REPLAY_HEADER = "X-Corn-Replay";
+const MAX_MANIFEST_BYTES = 512 * 1024;
+const MAX_MANIFESTS_PER_TAB = 24;
+const MAX_MANIFESTS = 128;
+const MAX_ACTIVE_CAPTURES = 16;
+const activeCaptures = new Map();
+
+// Retain only headers needed for media requests, never arbitrary site headers.
+function mediaHeaders(headers) {
+    const allowed = new Set(["cookie", "authorization", "referer", "origin", "accept", "accept-language"]);
+    return cloneHeaders(headers).filter(header => allowed.has(header.name.toLowerCase()));
+}
+
+function forgetFinishedJob(job) {
+    if (!job?.forgetWhenFinished || isJobActive(job)) return;
+    downloadJobs.delete(job.id);
+    if (jobByTab.get(job.tabId) === job.id) jobByTab.delete(job.tabId);
+    job.mediaUrl = null;
+    job.filename = null;
+    job.error = null;
+    job._samples = [];
+}
+
+function clearTabMedia(tabId) {
+    for (const capture of activeCaptures.values()) {
+        if (capture.tabId === tabId) capture.detach();
+    }
+    for (const [key, record] of manifestRecords) {
+        if (record.tabId === tabId) manifestRecords.delete(key);
+    }
+    clearDirectMedia(tabId);
+    const job = getTabJob(tabId);
+    if (job) {
+        job.forgetWhenFinished = true;
+        forgetFinishedJob(job);
+    }
+}
 
 
 const manifestRecords = new Map();
@@ -224,17 +260,21 @@ function reconstructSegmentUrl(
                 observedUrl
             );
 
+        const sameOrigin = derived.origin === observed.origin;
+
 
         derived.protocol =
             observed.protocol;
 
         derived.host =
             observed.host;
+        derived.username = "";
+        derived.password = "";
 
 
         const merged =
             new URLSearchParams(
-                derived.search
+                sameOrigin ? derived.search : ""
             );
 
 
@@ -303,7 +343,7 @@ async function getConcurrencySetting() {
     } catch (error) {
         console.error(
             "[Corn] Could not read settings:",
-            error
+            error?.name
         );
     }
 
@@ -1097,7 +1137,7 @@ function storeManifest(
     details,
     text
 ) {
-    if (details.tabId < 0 || !text.trimStart().startsWith("#EXTM3U")) {
+    if (details.tabId < 0 || text.length > MAX_MANIFEST_BYTES || !text.trimStart().startsWith("#EXTM3U")) {
         return;
     }
     const type =
@@ -1134,6 +1174,8 @@ function storeManifest(
     }
 
 
+    // Reinsert updates so eviction removes the least recently captured record.
+    manifestRecords.delete(`${details.tabId}:${details.url}`);
     manifestRecords.set(
         `${details.tabId}:${details.url}`,
         {
@@ -1144,6 +1186,7 @@ function storeManifest(
                 details.tabId,
 
             type,
+            incognito: Boolean(details.incognito),
 
             analysis,
 
@@ -1151,122 +1194,61 @@ function storeManifest(
                 Date.now()
         }
     );
+    const tabRecords = [...manifestRecords].filter(([, record]) => record.tabId === details.tabId);
+    while (tabRecords.length > MAX_MANIFESTS_PER_TAB) manifestRecords.delete(tabRecords.shift()[0]);
+    while (manifestRecords.size > MAX_MANIFESTS) manifestRecords.delete(manifestRecords.keys().next().value);
 }
 
 
-function captureManifestResponse(
-    details
-) {
+function captureManifestResponse(details) {
+    activeCaptures.get(details.requestId)?.detach();
+    if (details.tabId < 0 || activeCaptures.size >= MAX_ACTIVE_CAPTURES) return;
     let filter;
-
-
     try {
-        filter =
-            browser.webRequest
-                .filterResponseData(
-                    details.requestId
-                );
-
-    } catch (error) {
-        console.error(
-            "[Corn] Could not capture manifest:",
-            error
-        );
-
-        return;
+        filter = browser.webRequest.filterResponseData(details.requestId);
+    } catch {
+        return; // Observation must never interrupt playback.
     }
-
-
-    const chunks =
-        [];
-
-
-    filter.ondata =
-        event => {
-
-            chunks.push(
-                new Uint8Array(
-                    event.data.slice(0)
-                )
-            );
-
-
-            filter.write(
-                event.data
-            );
-        };
-
-
-    filter.onstop =
-        () => {
-
-            try {
-                let total =
-                    0;
-
-
-                for (
-                    const chunk of chunks
-                ) {
-                    total +=
-                        chunk.byteLength;
-                }
-
-
-                const combined =
-                    new Uint8Array(
-                        total
-                    );
-
-
-                let offset =
-                    0;
-
-
-                for (
-                    const chunk of chunks
-                ) {
-
-                    combined.set(
-                        chunk,
-                        offset
-                    );
-
-
-                    offset +=
-                        chunk.byteLength;
-                }
-
-
-                const text =
-                    new TextDecoder(
-                        "utf-8"
-                    ).decode(
-                        combined
-                    );
-
-
-                storeManifest(
-                    details,
-                    text
-                );
-
-            } catch (error) {
-
-                console.error(
-                    "[Corn] Manifest decode failed:",
-                    error
-                );
-
-            } finally {
-
-                try {
-                    filter.close();
-                } catch {
-                    // Ignore cleanup error.
-                }
-            }
-        };
+    const chunks = [];
+    let total = 0;
+    let ended = false;
+    let timer;
+    const release = () => {
+        ended = true;
+        chunks.length = 0;
+        clearTimeout(timer);
+        if (activeCaptures.get(details.requestId) === capture) activeCaptures.delete(details.requestId);
+    };
+    const detach = () => {
+        release();
+        try { filter.disconnect(); } catch { /* The request may already have ended. */ }
+    };
+    const capture = { tabId: details.tabId, detach };
+    activeCaptures.set(details.requestId, capture);
+    timer = setTimeout(detach, 15000);
+    filter.ondata = event => {
+        if (ended) return;
+        // Forward first; reaching a capture limit must not truncate the player's response.
+        try { filter.write(event.data); } catch { detach(); return; }
+        total += event.data.byteLength;
+        if (total > MAX_MANIFEST_BYTES) { detach(); return; }
+        chunks.push(new Uint8Array(event.data.slice(0)));
+    };
+    filter.onerror = detach;
+    filter.onstop = () => {
+        if (ended) return;
+        try {
+            const combined = new Uint8Array(total);
+            let offset = 0;
+            for (const chunk of chunks) { combined.set(chunk, offset); offset += chunk.byteLength; }
+            storeManifest(details, new TextDecoder('utf-8').decode(combined));
+        } catch {
+            // Do not log URLs, cookies, tokens, or response contents.
+        } finally {
+            release();
+            try { filter.close(); } catch { /* Already closed. */ }
+        }
+    };
 }
 
 
@@ -1823,7 +1805,7 @@ function isJobActive(job) {
 async function fetchWithPlayerHeaders(url, playerHeaders, signal) {
     throwIfAborted(signal);
     const token = createJobId();
-    const replayState = { url, headers: cloneHeaders(playerHeaders), headersApplied: false };
+    const replayState = { url, headers: mediaHeaders(playerHeaders), headersApplied: false };
     pendingReplays.set(token, replayState);
 
     const controller = new AbortController();
@@ -1838,9 +1820,13 @@ async function fetchWithPlayerHeaders(url, playerHeaders, signal) {
     try {
         const response = await fetch(url, {
             method: "GET",
-            credentials: "include",
+            // Never borrow the background page's normal-session cookies, including
+            // for private tabs. Only explicitly captured player headers are replayed.
+            credentials: "omit",
             cache: "no-store",
-            redirect: "follow",
+            // Redirected replays could forward site credentials to another origin.
+            // Detection observes the player's final URL, so downloads use that URL.
+            redirect: "error",
             headers: { [REPLAY_HEADER]: token },
             signal: controller.signal
         });
@@ -1860,7 +1846,7 @@ async function fetchWithPlayerHeaders(url, playerHeaders, signal) {
         return {
             ok: false, status: null, buffer: null,
             headersApplied: replayState.headersApplied,
-            error: timedOut ? "Request timed out after 60 seconds" : error.message
+            error: timedOut ? "Request timed out after 60 seconds" : "Media request failed (network error or redirect)."
         };
     } finally {
         clearTimeout(timer);
@@ -1934,9 +1920,7 @@ async function downloadOneResource(
                     candidate,
                     new URL(candidate).origin === new URL(observedUrl).origin
                         ? playerHeaders
-                        : playerHeaders.filter(header =>
-                            !["cookie", "authorization"].includes(header.name.toLowerCase())
-                        ),
+                        : [],
                     signal
                 );
 
@@ -2435,6 +2419,7 @@ async function runDownloadJob(
                         objectUrl,
 
                     filename,
+                    incognito: Boolean(mediaRecord.incognito),
 
                     saveAs:
                         true,
@@ -2481,7 +2466,7 @@ async function runDownloadJob(
                 error: { current: saved.error }
             });
         } catch (error) {
-            console.error("[Corn] Could not query save status:", error);
+            console.error("[Corn] Could not query save status:", error?.name);
         }
 
 
@@ -2520,7 +2505,7 @@ async function runDownloadJob(
 
             console.error(
                 "[Corn] Download failed:",
-                error
+                error?.name
             );
         }
 
@@ -2534,6 +2519,7 @@ async function runDownloadJob(
         parts.fill(null);
         if (objectUrl && !handedToFirefox) URL.revokeObjectURL(objectUrl);
         job.abortController = null;
+        forgetFinishedJob(job);
     }
 }
 
@@ -2829,6 +2815,7 @@ async function startDownload(
 
                     currentJob.finishedAt =
                         Date.now();
+                    forgetFinishedJob(currentJob);
                 }
 
             },
@@ -2918,7 +2905,7 @@ async function cancelDownload(
         job.finishedAt =
             Date.now();
 
-
+        forgetFinishedJob(job);
         return {
 
             success:
@@ -2981,7 +2968,8 @@ browser.webRequest
     .addListener(
 
         details => {
-
+            // Clear before attaching a capture for a new top-level document.
+            if (details.type === "main_frame" && details.tabId >= 0) clearTabMedia(details.tabId);
             if (
                 !isHlsManifest(
                     details.url
@@ -3046,7 +3034,7 @@ browser.webRequest
                 REPLAY_HEADER.toLowerCase()
             ]);
             const merged = new Map(headers
-                .filter(header => !["range", "if-range", "if-none-match", "if-modified-since"]
+                .filter(header => !["cookie", "authorization", "range", "if-range", "if-none-match", "if-modified-since"]
                     .includes(header.name.toLowerCase()))
                 .map(header => [header.name.toLowerCase(), header]));
             for (const header of replayState.headers) {
@@ -3113,7 +3101,8 @@ browser.webRequest
 
             // Segments may live in a subdirectory or have no file extension.
             // Do not start from an advert or another quality in the same folder.
-            if (!waiting.segmentPaths.has(getUrlPath(details.url))) {
+            if (Boolean(details.incognito) !== Boolean(waiting.mediaRecord.incognito) ||
+                !waiting.segmentPaths.has(getUrlPath(details.url))) {
                 return;
             }
 
@@ -3133,7 +3122,7 @@ browser.webRequest
 
 
             const playerHeaders =
-                cloneHeaders(
+                mediaHeaders(
                     details.requestHeaders
                 );
 
@@ -3165,11 +3154,12 @@ browser.webRequest
 
                     job.finishedAt =
                         Date.now();
+                    forgetFinishedJob(job);
 
 
                     console.error(
                         "[Corn] Unexpected download error:",
-                        error
+                        error?.name
                     );
                 }
             );
@@ -3211,6 +3201,7 @@ function handleFirefoxDownloadChange(delta) {
     if (objectUrl) URL.revokeObjectURL(objectUrl);
     objectUrlsByDownload.delete(delta.id);
     jobByFirefoxDownload.delete(delta.id);
+    forgetFinishedJob(job);
 }
 
 browser.downloads.onChanged.addListener(handleFirefoxDownloadChange);
@@ -3340,25 +3331,7 @@ browser.runtime
                 message.type ===
                 "CLEAR_STREAMS"
             ) {
-                clearDirectMedia(message.tabId);
-
-                for (
-                    const [
-                        key,
-                        record
-                    ] of manifestRecords
-                ) {
-
-                    if (
-                        record.tabId ===
-                        message.tabId
-                    ) {
-
-                        manifestRecords.delete(
-                            key
-                        );
-                    }
-                }
+                clearTabMedia(message.tabId);
 
 
                 return Promise.resolve({
@@ -3377,72 +3350,10 @@ browser.runtime
    TAB CLEANUP
 ========================================================= */
 
-browser.tabs
-    .onRemoved
-    .addListener(
-
-        tabId => {
-
-            for (
-                const [
-                    key,
-                    record
-                ] of manifestRecords
-            ) {
-
-                if (
-                    record.tabId ===
-                    tabId
-                ) {
-
-                    manifestRecords.delete(
-                        key
-                    );
-                }
-            }
-
-
-            const waiting =
-                waitingDownloads.get(
-                    tabId
-                );
-
-
-            if (waiting) {
-
-                clearTimeout(
-                    waiting.timeout
-                );
-
-
-                waitingDownloads.delete(
-                    tabId
-                );
-            }
-
-
-            const job =
-                getTabJob(
-                    tabId
-                );
-
-
-            if (
-                job &&
-                job.status ===
-                    "waiting"
-            ) {
-
-                job.status =
-                    "cancelled";
-
-
-                job.message =
-                    "Source tab was closed.";
-
-
-                job.finishedAt =
-                    Date.now();
-            }
-        }
-    );
+browser.tabs.onRemoved.addListener(tabId => {
+    const job = getTabJob(tabId);
+    clearTabMedia(tabId);
+    if (job && isJobActive(job)) {
+        cancelDownload(job.id).finally(() => forgetFinishedJob(job));
+    }
+});

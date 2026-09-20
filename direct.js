@@ -37,18 +37,27 @@ function directDownloadHeaders(headers) {
     );
 }
 
-browser.webRequest.onSendHeaders.addListener(details => {
+function rememberMediaRequest(details) {
     if (details.tabId < 0 || details.method !== "GET" ||
         !["media", "xmlhttprequest", "other", "main_frame", "sub_frame"].includes(details.type)) return;
+    const previous = mediaRequestHeaders.get(details.requestId);
     mediaRequestHeaders.set(details.requestId, {
         tabId: details.tabId, url: details.url,
-        headers: directDownloadHeaders(details.requestHeaders)
+        headers: directDownloadHeaders(details.requestHeaders),
+        cookieStoreId: details.cookieStoreId ?? previous?.cookieStoreId
     });
     // Bound metadata if a page leaves many requests open indefinitely.
     if (mediaRequestHeaders.size > 1000) {
         mediaRequestHeaders.delete(mediaRequestHeaders.keys().next().value);
     }
-}, { urls: ["http://*/*", "https://*/*"] }, ["requestHeaders"]);
+}
+
+// Cached responses may have no onSendHeaders event. Track their request identity
+// first, then add headers if Firefox actually sends the request over the network.
+browser.webRequest.onBeforeRequest.addListener(rememberMediaRequest,
+    { urls: ["http://*/*", "https://*/*"] });
+browser.webRequest.onSendHeaders.addListener(rememberMediaRequest,
+    { urls: ["http://*/*", "https://*/*"] }, ["requestHeaders"]);
 
 browser.webRequest.onHeadersReceived.addListener(details => {
     if (details.tabId < 0 || details.method !== "GET" ||
@@ -63,6 +72,8 @@ browser.webRequest.onHeadersReceived.addListener(details => {
     if (/\.(?:m4s|ts|m3u8)$/i.test(path) || isKnownHlsResource(details.tabId, details.url)) return;
 
     const request = mediaRequestHeaders.get(details.requestId);
+    // A cleared/navigated/closed tab must not be repopulated by an old response.
+    if (!request || request.tabId !== details.tabId || request.url !== details.url) return;
     const total = details.statusCode === 206
         ? header("content-range").match(/\/(\d+)$/)?.[1]
         : header("content-length");
@@ -73,7 +84,8 @@ browser.webRequest.onHeadersReceived.addListener(details => {
         tabId: details.tabId, url: details.url,
         size: Number.isSafeInteger(size) && size > 0 ? size : previous?.size || null,
         headers: request?.url === details.url ? request.headers : [],
-        incognito: Boolean(details.incognito)
+        incognito: Boolean(details.incognito),
+        cookieStoreId: request.cookieStoreId
     });
     if (directMediaRecords.size > 500) {
         directMediaRecords.delete(directMediaRecords.keys().next().value);
@@ -94,6 +106,9 @@ function startDirectDownload(message) {
     const record = directMediaRecords.get(`${tabId}:${mediaUrl}`);
     if (!record || isKnownHlsResource(tabId, mediaUrl)) {
         return { success: false, error: "This MP4 is no longer available as a direct file. Refresh the video list." };
+    }
+    if (record.cookieStoreId && !["firefox-default", "firefox-private"].includes(record.cookieStoreId)) {
+        return { success: false, error: "Direct MP4 downloads from container tabs are not supported. Open the video in a normal or private tab." };
     }
     if (existing) downloadJobs.delete(existing.id);
     const job = {
@@ -131,6 +146,7 @@ async function runDirectDownload(job, record) {
         job.message = job.cancelRequested ? "Download cancelled." : "Could not download the MP4 file.";
         job.error = job.cancelRequested ? null : error.message;
         job.finishedAt = Date.now();
+        forgetFinishedJob(job);
     }
 }
 
@@ -144,7 +160,7 @@ async function refreshDirectJob(job) {
         handleFirefoxDownloadChange({ id: job.downloadId,
             state: { current: item.state }, error: { current: item.error } });
     } catch (error) {
-        console.error("[Corn] Could not query MP4 progress:", error);
+        console.error("[Corn] Could not query MP4 progress:", error?.name);
     }
 }
 

@@ -27,7 +27,7 @@ function harness() {
         clearTimeout(key) { timers.delete(key); }
     });
     vm.runInContext(functions, context);
-    const api = vm.runInContext('({ startPolling, stopPolling, updateJobUI, createMaster, startDownload })', context);
+    const api = vm.runInContext('({ startPolling, stopPolling, updateJobUI, createMaster, startDownload, createActiveDownloadCard })', context);
     const ui = { jobId: 'new', statusElement: {}, progressElement: { style: {} },
         downloadButton: {}, cancelButton: { style: {} } };
     context.testUI = ui;
@@ -49,6 +49,30 @@ test('old polling responses cannot overwrite or stop a newer job', async () => {
     assert.equal(timers.size, 1);
     api.updateJobUI({ id: 'old', status: 'error', error: 'Wrong job' });
     assert.equal(ui.statusElement.textContent, text);
+});
+
+test('a download whose detection was cleared still has progress and a working Cancel control', () => {
+    const { api, requests } = harness();
+    const card = api.createActiveDownloadCard({ id: 'orphan', kind: 'direct',
+        status: 'saving', bytes: 5, estimatedBytes: 10 });
+    const cancel = card.children.find(child => child.textContent === 'Cancel');
+    assert.equal(cancel.style.display, 'inline-block');
+    assert.equal(card.children.find(child => child.tagName === 'progress').value, 5);
+    assert.equal(requests[0].message.jobId, 'orphan');
+    cancel.events.click();
+    assert.equal(requests[1].message.type, 'CANCEL_DOWNLOAD');
+    assert.equal(requests[1].message.jobId, 'orphan');
+});
+
+test('a forgotten job ends polling without leaving stale progress or Cancel controls', async () => {
+    const { api, requests, ui, timers } = harness();
+    api.startPolling('new');
+    requests[0].resolve({ success: false, job: null });
+    await tick();
+    assert.match(ui.statusElement.textContent, /details were removed/);
+    assert.equal(ui.cancelButton.style.display, 'none');
+    assert.equal(ui.progressElement.style.display, 'none');
+    assert.equal(timers.size, 0);
 });
 
 test('direct MP4 card renders file details and restores native download progress', () => {

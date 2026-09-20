@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Corn Downloader — Privacy</title>
+  <link rel="stylesheet" href="privacy.css">
+</head>
+<body>
+  <main>
+    <img src="icons/corn-96.png" alt="" width="64" height="64">
+    <h1>Corn Downloader privacy</h1>
+    <p>Version 0.8.1 · No telemetry, analytics, advertising or developer servers.</p>
+    <h2>What stays in Firefox</h2>
+    <p>The extension detects media requests on sites where you grant access. Detected
+      URLs, playlist information, selected request headers and download status are kept
+      in memory. The HLS worker count is saved in local extension storage.</p>
+    <h2>What downloads send</h2>
+    <p>When you click Download, Firefox contacts the selected media servers. They receive
+      your IP address, media URLs (which can contain access tokens), and relevant site
+      headers, cookies or authorization information needed to serve the file. Nothing
+      is sent to the developer. The media site's privacy practices apply.</p>
+    <p>Firefox asks you to accept browsing activity, website content and authentication
+      information permissions during installation or upgrade. These cover downloading
+      from the media site; they do not enable analytics.</p>
+    <h2>Private windows and cleanup</h2>
+    <p>Private-window access is controlled by Firefox. When allowed, downloads use the
+      private download context. HLS requests use captured headers without borrowing
+      cookies from the normal browser session, and do not follow redirects.</p>
+    <p>Clear, navigation and closing a tab remove its detected media. An active download
+      keeps the information it needs until it finishes or is cancelled. Closing its
+      source tab requests cancellation. Completed job information is then discarded;
+      otherwise it remains until Clear, navigation, tab closure or the next job.</p>
+    <p>Firefox manages saved files and download history. Private mode does not erase a
+      file you chose to save. Uninstalling the extension does not delete saved videos.</p>
+    <h2>Your controls</h2>
+    <p>Use Cancel to stop a download and Clear to remove detected entries. Manage site
+      access and private-window access in Firefox's extension settings. Direct MP4
+      downloads from container tabs are not supported; use a normal or private tab.</p>
+    <h2>Documentation</h2>
+    <p><a href="https://github.com/StiffyTime/CornDownloader#readme" target="_blank" rel="noopener">Project README</a>.
+      Individual support and external contributions are not offered.</p>
+  </main>
+</body>
+</html>

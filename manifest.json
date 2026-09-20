@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Corn Downloader",
-  "version": "0.8.0",
-  "description": "Private local HLS and direct MP4 video detector and downloader.",
+  "version": "0.8.1",
+  "description": "Detect and download supported HLS streams and direct MP4 videos.",
   "permissions": [
     "webRequest",
     "webRequestBlocking",
@@ -22,16 +22,28 @@
   },
   "action": {
     "default_title": "Corn Downloader",
-    "default_popup": "popup/popup.html"
+    "default_popup": "popup/popup.html",
+    "default_icon": {
+      "48": "icons/corn-48.png",
+      "96": "icons/corn-96.png"
+    }
   },
   "browser_specific_settings": {
     "gecko": {
       "id": "corn-downloader@local",
       "data_collection_permissions": {
         "required": [
-          "none"
+          "browsingActivity",
+          "websiteContent",
+          "authenticationInfo"
         ]
-      }
+      },
+      "strict_min_version": "142.0"
     }
+  },
+  "homepage_url": "https://github.com/StiffyTime/CornDownloader",
+  "icons": {
+    "48": "icons/corn-48.png",
+    "96": "icons/corn-96.png"
   }
 }

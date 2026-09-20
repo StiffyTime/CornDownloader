@@ -427,7 +427,7 @@ async function createSettingsPanel() {
     } catch (error) {
         console.error(
             "[Corn popup] Could not load settings:",
-            error
+            error?.name
         );
 
         note.textContent =
@@ -477,7 +477,7 @@ async function createSettingsPanel() {
             } catch (error) {
                 console.error(
                     "[Corn popup] Could not save settings:",
-                    error
+                    error?.name
                 );
 
                 note.textContent =
@@ -811,9 +811,15 @@ function startPolling(jobId) {
                 keepPolling = isActiveStatus(result.job.status);
             } else {
                 keepPolling = false;
+                if (activeJobUI?.jobId === jobId) {
+                    activeJobUI.statusElement.textContent = "Download ended; cleared job details were removed. Check Firefox's downloads for the result.";
+                    activeJobUI.progressElement.style.display = "none";
+                    activeJobUI.cancelButton.style.display = "none";
+                    activeJobUI.downloadButton.disabled = true;
+                }
             }
         } catch (error) {
-            console.error("[Corn popup] Poll failed:", error);
+            console.error("[Corn popup] Poll failed:", error?.name);
         }
         // Schedule after the response: slow messages cannot overlap or update a new card.
         if (keepPolling && generation === pollingGeneration) {
@@ -1008,7 +1014,7 @@ async function cancelCurrentDownload() {
     } catch (error) {
         console.error(
             "[Corn popup] Cancel failed:",
-            error
+            error?.name
         );
     }
 }
@@ -1420,6 +1426,29 @@ function createMaster(
    POPUP LOAD
 ========================================================= */
 
+// Keep cancellation accessible when Clear/navigation/eviction removed a job's card.
+function createActiveDownloadCard(job) {
+    const section = document.createElement("section");
+    section.className = "stream";
+    const title = document.createElement("h2");
+    title.textContent = "Current download";
+    const statusElement = document.createElement("div");
+    statusElement.className = "download-status";
+    statusElement.style.whiteSpace = "pre-line";
+    const progressElement = document.createElement("progress");
+    progressElement.className = "download-progress";
+    const downloadButton = document.createElement("button");
+    downloadButton.style.display = "none";
+    const cancelButton = document.createElement("button");
+    cancelButton.textContent = "Cancel";
+    cancelButton.addEventListener("click", cancelCurrentDownload);
+    for (const node of [title, statusElement, progressElement, cancelButton]) section.appendChild(node);
+    activeJobUI = { jobId: job.id, statusElement, progressElement, downloadButton, cancelButton };
+    updateJobUI(job);
+    startPolling(job.id);
+    return section;
+}
+
 async function loadStreams() {
     stopPolling();
 
@@ -1526,6 +1555,9 @@ async function loadStreams() {
             help.className = "help";
             help.textContent = "Start playing the video, then click Refresh.";
             container.replaceChildren(help);
+            if (existingJob && isActiveStatus(existingJob.status)) {
+                container.appendChild(createActiveDownloadCard(existingJob));
+            }
 
             return;
         }
@@ -1553,11 +1585,14 @@ async function loadStreams() {
                 );
             }
         );
+        if (!activeJobUI && existingJob && isActiveStatus(existingJob.status)) {
+            container.appendChild(createActiveDownloadCard(existingJob));
+        }
 
     } catch (error) {
         console.error(
             "[Corn popup] Could not load streams:",
-            error
+            error?.name
         );
 
         status.textContent =
@@ -1631,7 +1666,7 @@ if (clearButton) {
             } catch (error) {
                 console.error(
                     "[Corn popup] Clear failed:",
-                    error
+                    error?.name
                 );
             }
         }
@@ -1647,7 +1682,7 @@ loadStreams().catch(
     error => {
         console.error(
             "[Corn popup] Initial load failed:",
-            error
+            error?.name
         );
 
         const status =
